@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>江南四城 · 美食美景之旅</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+/* ═══════════════ RESET & BASE ═══════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;background:#f7f6f2;color:#2c2c2c;-webkit-text-size-adjust:100%}
+
+/* ═══════════════ HEADER ═══════════════ */
+.hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);color:#fff;padding:48px 20px 36px;text-align:center;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");opacity:.4}
+.hero h1{font-size:1.6rem;font-weight:700;letter-spacing:-.5px;position:relative;z-index:1}
+.hero .sub{font-size:.85rem;color:rgba(255,255,255,.65);margin-top:6px;position:relative;z-index:1}
+.hero .meta{font-size:.75rem;color:rgba(255,255,255,.5);margin-top:4px;position:relative;z-index:1}
+.hero .route{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-top:14px;position:relative;z-index:1}
+.hero .route span{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;font-size:.78rem;font-weight:500;color:rgba(255,255,255,.85)}
+.hero .route .arrow{background:transparent;border:none;color:rgba(255,255,255,.3);padding:4px 2px}
+
+/* ═══════════════ CITY NAV ═══════════════ */
+.city-nav{display:flex;gap:0;margin:-20px 16px 0;position:relative;z-index:2}
+.city-btn{flex:1;padding:12px 8px;border:none;border-radius:12px 12px 0 0;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .25s;background:rgba(255,255,255,.5);color:rgba(44,44,44,.5);font-family:inherit;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.city-btn:hover{background:rgba(255,255,255,.7)}
+.city-btn.active{background:#fff;color:#2c2c2c;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.city-btn .city-day{display:block;font-size:.6rem;font-weight:400;color:inherit;opacity:.6;margin-top:2px}
+
+/* ═══════════════ DAY PILLS ═══════════════ */
+.day-strip{background:#fff;padding:10px 16px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.day-strip::-webkit-scrollbar{display:none}
+.day-pill{flex-shrink:0;padding:6px 16px;border-radius:20px;border:1.5px solid #eee;background:#fff;font-size:.75rem;font-weight:500;cursor:pointer;transition:all .18s;color:#888;white-space:nowrap;font-family:inherit}
+.day-pill:hover{border-color:#0f3460;color:#0f3460}
+.day-pill.active{background:#0f3460;color:#fff;border-color:#0f3460}
+.day-pill .dow{font-size:.65rem;opacity:.7}
+
+/* ═══════════════ MAP ═══════════════ */
+.map-wrap{background:#fff;padding:0 16px 16px}
+#map{width:100%;height:240px;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04);background:#e8e4dc}
+
+/* ═══════════════ CARDS ═══════════════ */
+.content{padding:12px 16px 80px;max-width:720px;margin:0 auto}
+.day-block{display:none}
+.day-block.active{display:block}
+
+.card{background:#fff;border-radius:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);overflow:hidden}
+
+/* Card header */
+.card-hd{padding:14px 16px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f5f5f5}
+.card-hd .emoji{font-size:1.1rem}
+.card-hd .label{font-size:.8rem;font-weight:600;color:#555;letter-spacing:.3px}
+.card-hd .tag{font-size:.62rem;padding:2px 10px;border-radius:20px;font-weight:500}
+.tag-food{background:#fef3e9;color:#c76a2a}
+.tag-sight{background:#e8f4ed;color:#2a8a5a}
+.tag-hotel{background:#e8edf4;color:#2a5a8a}
+.tag-transit{background:#f0e8f4;color:#6a2a8a}
+
+/* Card body */
+.card-bd{padding:12px 16px 14px}
+.card-title{font-size:.92rem;font-weight:600;color:#2c2c2c}
+.card-sub{font-size:.75rem;color:#999;margin-top:3px}
+
+/* Meal review */
+.review{margin-top:8px;padding:8px 10px;background:#fafaf8;border-radius:8px;font-size:.78rem;line-height:1.6;color:#666}
+.review strong{color:#0f3460;font-weight:600}
+
+/* Sight text */
+.sight-text{font-size:.82rem;color:#666;line-height:1.6;margin-top:4px}
+
+/* Action buttons */
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.act{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:8px;border:1px solid #eee;background:#fafafa;font-size:.74rem;cursor:pointer;color:#666;text-decoration:none;font-family:inherit;transition:all .12s;min-height:36px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.act:active{background:#f0f0f0;transform:scale(.96)}
+.act.primary{background:#0f3460;color:#fff;border-color:#0f3460}
+.act.primary:active{background:#0a2850}
+.act .ico{font-size:.82rem}
+
+/* Pay tags */
+.pays{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.pay{font-size:.62rem;padding:2px 8px;border-radius:4px;background:#f5f5f5;color:#888;border:1px solid #eee}
+.pay.cc{background:#eef4fa;color:#3a6a9a;border-color:#d0dce8}
+.pay.alipay{background:#eef7ed;color:#3a7a3a;border-color:#cce0c4}
+.pay.card{background:#faf4ed;color:#9a7a4a;border-color:#e8dcc4}
+.pay.cash{background:#f5f0f0;color:#7a6a6a;border-color:#e0d8d0}
+
+/* Note */
+.note{padding:10px 14px;background:#fafaf8;font-size:.78rem;color:#888;line-height:1.5;border-top:1px solid #f5f5f5}
+
+/* ═══════════════ FOOTER ═══════════════ */
+.footer{text-align:center;padding:32px 16px 40px;font-size:.7rem;color:#bbb;line-height:1.8}
+
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media(min-width:640px){
+  .hero{padding:64px 20px 48px}
+  .hero h1{font-size:2rem}
+  .content{padding:16px 20px 80px}
+  #map{height:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <h1>🍜 江南四城</h1>
+  <div class="sub">南京 · 杭州 · 苏州 · 上海 · 美食美景之旅</div>
+  <div class="meta">📅 2026.5.29 (五) — 6.10 (三) · 13 天 12 晚</div>
+  <div class="route">
+    <span>南京</span><span class="arrow">→</span>
+    <span>杭州</span><span class="arrow">→</span>
+    <span>苏州</span><span class="arrow">→</span>
+    <span>上海</span>
+  </div>
+</div>
+
+<!-- ═══ CITY TABS ═══ -->
+<div class="city-nav" id="cityNav"></div>
+
+<!-- ═══ DAY STRIP ═══ -->
+<div class="day-strip" id="dayStrip"></div>
+
+<!-- ═══ MAP ═══ -->
+<div class="map-wrap">
+  <div id="map"></div>
+</div>
+
+<!-- ═══ CONTENT ═══ -->
+<div class="content" id="content"></div>
+
+<div class="footer">
+  数据来源：大众点评必吃榜 · 小红书 · 本地推荐<br>
+  价格可能变动，以各 App 最新为准
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════════ */
+const CITIES = [
+  { id:'nanjing', name:'南京', color:'#0f3460' },
+  { id:'hangzhou', name:'杭州', color:'#1a6a4a' },
+  { id:'suzhou',   name:'苏州', color:'#8a5a3a' },
+  { id:'shanghai', name:'上海', color:'#6a2a5a' }
+];
+
+const DAYS = [
+  // ── 南京 (0-2) ──
+  { d:1, date:'5/29', dow:'周五', cityIdx:0,
+    items:[
+      { type:'hotel', title:'入住 · 喜玛拉雅F座', note:'南京南站旁，楼下喜玛拉雅购物中心' },
+      { type:'food', title:'午餐', name:'小厨娘淮扬菜（喜玛拉雅店）', tag:'main',
+        price:'¥60-120', cui:'淮扬菜',
+        dp:'评分 4.7+，曾获黑珍珠一钻。B区4F步行2分钟，完全不用绕路。团购可压至¥60。脆皮烤鸭、八宝狮子头招牌。建议11:00前到。',
+        xhs:'环境日系简约风。脆皮烤鸭评价最好。周末12:00后人流激增。',
+        lat:31.973,lng:118.795,dpk:'小厨娘淮扬菜 喜玛拉雅',
+        pay:[0,1,2] },
+      { type:'food', title:'晚餐', name:'乐乐街夜市（喜玛拉雅旁）', tag:'main',
+        price:'¥20-60', cui:'夜市小吃',
+        dp:'火车主题夜市，全长350米。老翟板面、重庆烤苕皮、喜姐炸串。拾叁茶（南京版茶颜悦色）必喝。17:00-24:00营业。',
+        xhs:'2025-2026年轻人夜宵聚集地。复古车厢拍照出片。适合第一晚不跑远。',
+        lat:31.978,lng:118.791,dpk:'乐乐街 夜市',
+        pay:[1,3] }
+    ]},
+  { d:2, date:'5/30', dow:'周六', cityIdx:0,
+    items:[
+      { type:'food', title:'早餐', name:'李记清真馆（打钉巷店）', tag:'main',
+        price:'¥22-29', cui:'牛肉锅贴',
+        dp:'口味 4.5，人气 54.9万浏览。牛肉锅贴12元/5只一咬爆汁。本地人从民国吃起。排队常态，建议9:00后错峰。',
+        xhs:'两人分工省一半排队时间。搭配牛筋汤解腻。老店烟火气出片。',
+        lat:32.022,lng:118.773,dpk:'李记清真馆',
+        pay:[1,3] },
+      { type:'food', title:'午餐', name:'南城燕归楼（老门东店）', tag:'main',
+        price:'¥89-118', cui:'金陵菜',
+        dp:'老门东必吃榜。评分 4.5+。青柑普洱红烧肉、金陵双臭招牌。排队约20分钟。',
+        xhs:'红灯笼门头配青砖瓦出片。早茶套餐39.9元。建议11:00到。',
+        lat:32.013,lng:118.789,dpk:'南城燕归楼 老门东',
+        pay:[0,1,2] },
+      { type:'food', title:'晚餐', name:'南京大牌档（夫子庙平江府店）', tag:'main',
+        price:'¥74', cui:'金陵小吃',
+        dp:'评分 4.5，评价量 37万+！天王烤鸭包¥12、美龄粥¥18必点。⚠️排队2-3h，下午4:00放号先取号再逛。',
+        xhs:'清末民初茶楼风，红灯笼+评弹(18:00-20:30)。闭餐前菜可能售罄。',
+        lat:32.019,lng:118.789,dpk:'南京大牌档 夫子庙',
+        booking:{text:'提前取号',url:'https://www.dianping.com'},
+        pay:[0,1,2] },
+      { type:'sight', title:'老门东 → 夫子庙 → 秦淮河夜景',
+        detail:'上午老门东逛巷子 → 午餐 → 下午夫子庙+取号 → 秦淮河画舫 → 晚餐+夜景' }
+    ]},
+  { d:3, date:'5/31', dow:'周日', cityIdx:0,
+    items:[
+      { type:'food', title:'早餐', name:'芳婆糕团店（王府大街店）', tag:'alt',
+        price:'¥13', cui:'糕团',
+        dp:'评分 4.0，2.4万+评价。乌饭包老油条+酒酿元宵¥13。⚠️8-10点售罄，建议7:30前。',
+        xhs:'"8点多就没了"。极小无座位建议外带。滴滴司机推荐。',
+        lat:32.037,lng:118.776,dpk:'芳婆糕团店',
+        pay:[1,3] },
+      { type:'sight', title:'玄武湖 / 明孝陵', detail:'上午逛玄武湖（免费）或明孝陵，午后高铁赴杭州' },
+      { type:'transit', title:'🚄 南京 → 杭州', note:'高铁约1h，建议14:00出发' }
+    ]},
+  // ── 杭州 (3-5) ──
+  { d:4, date:'6/1', dow:'周一', cityIdx:1,
+    items:[
+      { type:'hotel', title:'入住 · 西湖周边', note:'推荐龙翔桥/定安路地铁站附近，步行到西湖5分钟' },
+      { type:'food', title:'午餐', name:'奎元馆（解放路店）', tag:'main',
+        price:'¥25-35', cui:'杭州面食',
+        dp:'1867年百年老店"江南面王"。米其林推荐。片儿川¥25，虾爆鳝面招牌。评分 4.4。',
+        xhs:'古色古香门面适合拍照。2025盖章打卡起点站。建议11:00前到。',
+        lat:30.248,lng:120.172,dpk:'奎元馆 解放路',
+        pay:[0,1,3] },
+      { type:'food', title:'晚餐', name:'福缘居酒楼（河坊街店）', tag:'main',
+        price:'¥40-48', cui:'杭帮菜',
+        dp:'本地人私藏TOP1！脆皮大肠、油淋鸡必点。评分 4.4+。一天500号仅23张桌子。',
+        xhs:'"清河坊杭帮菜人气王"。脆皮大肠+油淋鸡+蛋黄南瓜黄金组合。建议17:00到。',
+        lat:30.246,lng:120.168,dpk:'福缘居 河坊街',
+        pay:[1,3] },
+      { type:'sight', title:'河坊街 / 南宋御街', detail:'下午逛历史街区，吃定胜糕、葱包烩' }
+    ]},
+  { d:5, date:'6/2', dow:'周二', cityIdx:1,
+    items:[
+      { type:'food', title:'早餐', name:'游埠豆浆（中山南路）', tag:'alt',
+        price:'¥6-10', cui:'豆浆烧饼',
+        dp:'杭州早餐排队王。咸豆浆+烧饼油条¥6。全是本地人。评分 4.0。',
+        xhs:'"杭州清晨必吃"。7:00前到不排队。离河坊街步行可达。',
+        lat:30.238,lng:120.165,dpk:'游埠豆浆',
+        pay:[1,3] },
+      { type:'food', title:'午餐', name:'天竺人家·杭州土菜（灵隐店）', tag:'main',
+        price:'¥80', cui:'杭州土菜',
+        dp:'2025必吃榜，12年老店。叫花鸡、东坡肉招牌。评分 4.6+。灵隐周边最高分。',
+        xhs:'白墙黛瓦江南庭院，禅意满满！叫花鸡裹黄泥敲开有仪式感。汉服拍照绝了。',
+        lat:30.241,lng:120.107,dpk:'天竺人家 灵隐',
+        pay:[0,1] },
+      { type:'food', title:'晚餐', name:'老头儿油爆虾（in77店）', tag:'alt',
+        price:'¥100-110', cui:'杭帮菜',
+        dp:'2025必吃榜。油爆虾杭州天花板。评分 4.5+。离西湖最近。',
+        xhs:'油爆虾金黄上镜。建议17:30前到。',
+        lat:30.252,lng:120.168,dpk:'老头儿油爆虾 in77',
+        pay:[0,1,2] },
+      { type:'sight', title:'灵隐寺 → 西湖', detail:'上午灵隐寺/法喜寺 → 午餐 → 下午西湖断桥→白堤→苏堤' }
+    ]},
+  { d:6, date:'6/3', dow:'周三', cityIdx:1,
+    items:[
+      { type:'food', title:'早餐', name:'知味观（湖滨总店）', tag:'main',
+        price:'¥30-50', cui:'杭帮点心',
+        dp:'1913年中华老字号。龙井虾仁、宋嫂鱼羹、猫耳朵招牌。评分 4.3+。',
+        xhs:'老字号早茶。建议7:30-8:00到。吃完沿西湖散步去龙井。',
+        lat:30.259,lng:120.162,dpk:'知味观 湖滨总店',
+        pay:[0,1,2] },
+      { type:'sight', title:'龙井村 / 九溪烟树', detail:'上午品茶或九溪纳凉，午后高铁赴苏州' },
+      { type:'transit', title:'🚄 杭州 → 苏州', note:'高铁约1.5h，建议13:00-14:00出发' }
+    ]},
+  // ── 苏州 (6-8) ──
+  { d:7, date:'6/4', dow:'周四', cityIdx:2,
+    items:[
+      { type:'hotel', title:'入住 · 平江路/观前街', note:'推荐临顿路地铁站附近，步行至拙政园/平江路' },
+      { type:'food', title:'午餐', name:'同得兴（十全街店）', tag:'main',
+        price:'¥25-70', cui:'苏式面',
+        dp:'《舌尖2》推荐。枫镇大肉面招牌。评分 4.4+。三虾面5-6月限定正当季。',
+        xhs:'汤头清澈见底拍照一绝。三虾面时节限定。建议中午去吃。',
+        lat:31.306,lng:120.630,dpk:'同得兴 十全街',
+        pay:[0,1,3] },
+      { type:'food', title:'晚餐', name:'山塘家宴（海市山塘4楼）', tag:'main',
+        price:'¥80-120', cui:'苏帮菜',
+        dp:'高空露台俯瞰山塘全景。松鼠桂鱼、鸡头米河虾仁招牌。评分 4.3+。',
+        xhs:'⭐红灯笼亮起+游船划过，氛围感拉满。建议提前订露台位。',
+        lat:31.318,lng:120.607,dpk:'山塘家宴',
+        pay:[0,1,2] },
+      { type:'sight', title:'平江路 → 山塘街夜景', detail:'下午平江路听评弹 → 傍晚山塘街蓝调夜景（17:00亮灯）' }
+    ]},
+  { d:8, date:'6/5', dow:'周五', cityIdx:2,
+    items:[
+      { type:'food', title:'早餐', name:'哑巴生煎（临顿路店）', tag:'main',
+        price:'¥15', cui:'生煎',
+        dp:'苏州生煎代表，皮薄底脆爆汁。评分 4.3+。下午1点后可能卖完。',
+        xhs:'底部金黄焦脆绝了。吃完走路去拙政园。建议8:00前到。',
+        lat:31.325,lng:120.631,dpk:'哑巴生煎 临顿路',
+        pay:[1,3] },
+      { type:'food', title:'午餐', name:'李百蟹·蟹黄面（平江路店）', tag:'main',
+        price:'¥80-100', cui:'蟹黄面',
+        dp:'2025-2026必吃榜TOP。蟹黄金面¥98。平江河畔店。评分 4.5+。',
+        xhs:'河景位一绝！摇橹船+评弹声。芋泥麻薯甜品也火。建议11:00前去占位。',
+        lat:31.320,lng:120.629,dpk:'李百蟹 平江路',
+        pay:[0,1] },
+      { type:'food', title:'晚餐', name:'姑苏船宴（山塘街）', tag:'alt',
+        price:'¥150+', cui:'船宴',
+        dp:'摇橹船上吃宴席。需提前3-5天预约。评分 4.3+。',
+        xhs:'⭐最独特体验！⚠️一定提前约。适合两人出游。',
+        lat:31.318,lng:120.607,dpk:'姑苏船宴',
+        booking:{text:'预约(提前3-5天)',url:'https://www.dianping.com'},
+        dianping:false,
+        pay:[0,1,2] },
+      { type:'sight', title:'拙政园 → 苏博 → 留园', detail:'上午拙政园(世界遗产)+苏博(免费需预约) → 下午留园/虎丘' }
+    ]},
+  { d:9, date:'6/6', dow:'周六', cityIdx:2,
+    items:[
+      { type:'food', title:'早餐', name:'陆振兴（白塔店）', tag:'alt',
+        price:'¥8-20', cui:'苏式面',
+        dp:'本地爷爷奶奶排队吃的平价面馆。什锦面、素交面仅¥8。评分 4.0。',
+        xhs:'"跟本地阿婆吃不会错"。素交面清淡鲜美。离狮子林步行5分钟。',
+        lat:31.323,lng:120.617,dpk:'陆振兴面馆',
+        pay:[1,3] },
+      { type:'sight', title:'网师园 / 沧浪亭', detail:'上午可选，午后高铁赴上海（30分钟）' },
+      { type:'transit', title:'🚄 苏州 → 上海', note:'高铁约30min，建议13:00-14:00出发' }
+    ]},
+  // ── 上海 (9-12) ──
+  { d:10, date:'6/7', dow:'周日', cityIdx:3,
+    items:[
+      { type:'hotel', title:'入住 · 人民广场', note:'推荐人民广场地铁站附近' },
+      { type:'food', title:'午餐', name:'沪西老弄堂面馆（定西路店）', tag:'main',
+        price:'¥40-50', cui:'本帮面',
+        dp:'本帮面天花板。蛤蜊猪肝拌面¥32封神。评分 4.6+。饭点排队1-2h。',
+        xhs:'肖战打卡过。阿姨服务暖心。建议10:30或14:00错峰。',
+        lat:31.219,lng:121.420,dpk:'沪西老弄堂面馆 定西路',
+        pay:[1,3] },
+      { type:'food', title:'晚餐', name:'人和馆（肇嘉浜路店）', tag:'main',
+        price:'¥120-200', cui:'本帮菜',
+        dp:'米其林一星。蟹粉捞饭MVP！评分 4.7。⚠️提前线上抢号。',
+        xhs:'复古琉璃灯+《夜上海》BGM氛围拉满。人均¥120-200吃米其林一星。',
+        lat:31.198,lng:121.457,dpk:'人和馆 肇嘉浜路',
+        booking:{text:'提前取号',url:'https://www.dianping.com'},
+        pay:[0,1,2] },
+      { type:'sight', title:'南京路 → 外滩夜景', detail:'下午南京路步行街 → 傍晚外滩看亮灯' }
+    ]},
+  { d:11, date:'6/8', dow:'周一', cityIdx:3,
+    items:[
+      { type:'food', title:'早餐', name:'大壶春（四川中路总店）', tag:'main',
+        price:'¥28-35', cui:'生煎',
+        dp:'1932年百年老店。米其林必比登。鲜肉生煎4个¥11。评分 4.3+。',
+        xhs:'底部金黄焦脆是灵魂。咖喱牛肉粉丝汤绝配。建议堂吃。',
+        lat:31.238,lng:121.487,dpk:'大壶春 四川中路',
+        pay:[1,3] },
+      { type:'food', title:'午餐', name:'莱莱小笼·乔艾（天津路店）', tag:'alt',
+        price:'¥59', cui:'小笼包',
+        dp:'2025必吃榜。蟹粉鲜肉小笼招牌。评分 4.4+。近人民广场。',
+        xhs:'"上海最好小笼之一"。皮薄汤多。建议11:30前到。',
+        lat:31.237,lng:121.481,dpk:'莱莱小笼 天津路',
+        pay:[0,1,3] },
+      { type:'food', title:'晚餐', name:'食庐（南丰城店）', tag:'main',
+        price:'¥270-350', cui:'新淮扬菜',
+        dp:'连续6年必吃榜+黑珍珠一钻。菜包狮子头、橙香火焰鸭。评分 4.8。',
+        xhs:'"人均三百吃黑珍珠"。火焰鸭燃焰适合拍视频。提前订位。',
+        lat:31.212,lng:121.400,dpk:'食庐 南丰城',
+        booking:{text:'提前订位',url:'https://www.dianping.com'},
+        pay:[0,1,2] },
+      { type:'sight', title:'豫园 → 武康路 → 新天地', detail:'上午豫园/城隍庙 → 下午武康路City Walk → 新天地' }
+    ]},
+  { d:12, date:'6/9', dow:'周二', cityIdx:3,
+    items:[
+      { type:'food', title:'早餐', name:'万寿斋（四川北路）', tag:'alt',
+        price:'¥30', cui:'小笼馄饨',
+        dp:'虹口老字号。鲜肉小笼、麻酱面。评分 4.2。',
+        xhs:'"虹口人的回忆"。麻酱面配小馄饨经典。',
+        lat:31.258,lng:121.487,dpk:'万寿斋 四川北路',
+        pay:[1,3] },
+      { type:'food', title:'午餐', name:'蘭心餐厅（进贤路）', tag:'alt',
+        price:'¥120', cui:'本帮菜',
+        dp:'进贤路30年老店。酱鸭、油爆虾。评分 4.3。店面小。',
+        xhs:'进贤路本帮三巨头之一。建议11:00开门到。',
+        lat:31.214,lng:121.460,dpk:'蘭心餐厅 进贤路',
+        pay:[0,1,3] },
+      { type:'food', title:'晚餐', name:'李百蟹·蟹黄面（外滩江景店）', tag:'main',
+        price:'¥100-200', cui:'蟹黄面',
+        dp:'正对东方明珠。评分 4.4。赏夜景绝佳。',
+        xhs:'⭐外滩性价比最高江景餐厅！蟹黄面+醉蟹黄金组合。适合最后晚犒劳自己。',
+        lat:31.240,lng:121.498,dpk:'李百蟹 外滩',
+        booking:{text:'订靠窗位',url:'https://www.dianping.com'},
+        pay:[0,1,2] },
+      { type:'sight', title:'上海博物馆 → 陆家嘴 → 滨江', detail:'上午上博(免费需预约) → 下午陆家嘴/上海中心 → 滨江日落' }
+    ]},
+  { d:13, date:'6/10', dow:'周三', cityIdx:3,
+    items:[
+      { type:'food', title:'早餐', name:'佳家汤包（黄河路店）', tag:'main',
+        price:'¥50', cui:'汤包',
+        dp:'30年老字号。蟹粉汤包招牌。评分 4.3。现点现蒸等15分钟。',
+        xhs:'"上海最好吃汤包"。皮薄到透明。建议8:30前到。',
+        lat:31.237,lng:121.472,dpk:'佳家汤包 黄河路',
+        pay:[1,3] },
+      { type:'sight', title:'田子坊 / 新天地', detail:'上午逛逛，下午返程' },
+      { type:'transit', title:'👋 旅程结束 · 返程', note:'上海虹桥站/浦东机场出发' }
+    ]}
+];
+
+/* ═══════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════ */
+let map = null, mapMarkers = [], currentDay = 0;
+
+// ── City tabs ──
+function renderCityNav(){
+  const c = document.getElementById('cityNav');
+  c.innerHTML = '';
+  CITIES.forEach((ct, ci) => {
+    const days = DAYS.filter(d => d.cityIdx === ci);
+    const btn = document.createElement('button');
+    btn.className = 'city-btn' + (ci === 0 ? ' active' : '');
+    btn.innerHTML = ct.name + '<span class="city-day">第 ' + days[0].d + '-' + days[days.length-1].d + ' 天</span>';
+    btn.style.color = ci === 0 ? '#2c2c2c' : '#bbb';
+    btn.onclick = () => { switchCity(ci); };
+    c.appendChild(btn);
+  });
+}
+
+// ── Day pills ──
+function renderDayStrip(activeCityIdx){
+  const strip = document.getElementById('dayStrip');
+  strip.innerHTML = '';
+  const days = DAYS.filter(d => d.cityIdx === activeCityIdx);
+  days.forEach((day, idx) => {
+    const pill = document.createElement('button');
+    pill.className = 'day-pill' + (idx === 0 ? ' active' : '');
+    pill.innerHTML = '第' + day.d + '天 <span class="dow">' + day.dow + '</span>';
+    pill.onclick = () => {
+      const globalIdx = DAYS.indexOf(day);
+      switchDay(globalIdx);
+    };
+    strip.appendChild(pill);
+  });
+}
+
+// ── Map ──
+function initMap(){
+  if(typeof L === 'undefined' || !L.map){
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:.82rem">地图加载失败</div>';
+    return;
+  }
+  try {
+    map = L.map('map', {zoomControl: true, attributionControl: false}).setView([31.0, 119.8], 8);
+    L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+      maxZoom: 18,
+      attribution: ''
+    }).addTo(map);
+  } catch(e) {
+    document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:.82rem">地图加载失败</div>';
+    map = null;
+  }
+}
+
+function updateMap(dayIdx){
+  if(!map) return;
+  mapMarkers.forEach(m => map.removeLayer(m));
+  mapMarkers = [];
+  const day = DAYS[dayIdx];
+  const pts = day.items.filter(it => it.lat && it.lng);
+  if(pts.length === 0){
+    const cc = [[32.06,118.80],[30.27,120.16],[31.32,120.62],[31.23,121.47]];
+    map.setView(cc[day.cityIdx], 12);
+    return;
+  }
+  const bounds = [];
+  pts.forEach(p => {
+    try {
+      const mkr = L.marker([p.lat, p.lng]).addTo(map);
+      mkr.bindTooltip(p.name, {direction:'top', offset:[0,-10]});
+      mapMarkers.push(mkr);
+      bounds.push([p.lat, p.lng]);
+    } catch(e){}
+  });
+  if(bounds.length === 1) map.setView(bounds[0], 14);
+  else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40], maxZoom:15});
+  setTimeout(() => { try{map.invalidateSize();}catch(e){} }, 300);
+}
+
+// ── Cards ──
+function renderCards(dayIdx){
+  const container = document.getElementById('content');
+  container.innerHTML = '';
+  DAYS.forEach((day, di) => {
+    const block = document.createElement('div');
+    block.className = 'day-block' + (di === dayIdx ? ' active' : '');
+    let html = '';
+    day.items.forEach(item => {
+      html += '<div class="card">';
+      // Header
+      let emoji, label, tagClass;
+      if(item.type === 'hotel') { emoji='🏨'; label='住宿'; tagClass='tag-hotel'; }
+      else if(item.type === 'food') { emoji='🍜'; label=item.title; tagClass='tag-food'; }
+      else if(item.type === 'sight') { emoji='📍'; label='游玩'; tagClass='tag-sight'; }
+      else { emoji='🚄'; label='交通'; tagClass='tag-transit'; }
+      html += '<div class="card-hd"><span class="emoji">'+emoji+'</span><span class="label">'+label+'</span>';
+      if(item.tag === 'main') html += '<span class="tag tag-food">主推</span>';
+      else if(item.tag === 'alt') html += '<span class="tag" style="background:#f0f0f0;color:#888">备选</span>';
+      html += '</div>';
+      // Body
+      html += '<div class="card-bd">';
+      if(item.type === 'food'){
+        html += '<div class="card-title">'+item.name+'</div>';
+        html += '<div class="card-sub">'+item.cui+' · '+item.price+'</div>';
+        if(item.dp) html += '<div class="review"><strong>🍜 大众点评：</strong>'+item.dp+'</div>';
+        if(item.xhs) html += '<div class="review"><strong>📕 小红书：</strong>'+item.xhs+'</div>';
+        // Actions
+        html += '<div class="actions">';
+        var q = encodeURIComponent(item.name+day.cityIdx);
+        html += '<a class="act" href="https://maps.apple.com/?q='+encodeURIComponent(item.name)+'" target="_blank"><span class="ico">🗺️</span> 导航</a>';
+        html += '<a class="act" href="https://uri.amap.com/search?keyword='+encodeURIComponent(item.name)+'" target="_blank"><span class="ico">🧭</span> 高德</a>';
+        html += '<a class="act" href="xhsdiscover://search/notes?keyword='+encodeURIComponent(item.name)+'" onclick="return xhsCk(this,\''+encodeURIComponent(item.name)+'\')"><span class="ico">📕</span> 小红书</a>';
+        if(item.dianping !== false){
+          var dpk = encodeURIComponent(item.dpk || item.name);
+          html += '<a class="act" href="dianping://search?keyword='+dpk+'" onclick="return dpFb(this,\''+dpk+'\')"><span class="ico">🍜</span> 点评</a>';
+        }
+        if(item.booking) html += '<a class="act primary" href="'+item.booking.url+'" target="_blank"><span class="ico">📅</span> '+item.booking.text+'</a>';
+        html += '</div>';
+        // Pay tags
+        if(item.pay && item.pay.length){
+          html += '<div class="pays">';
+          var pl = ['💳 信用卡','📱 支付宝','🚇 交通卡','💰 现金'];
+          var pc = ['cc','alipay','card','cash'];
+          item.pay.forEach(function(pi){
+            html += '<span class="pay '+pc[pi]+'">'+pl[pi]+'</span>';
+          });
+          html += '</div>';
+        }
+      } else if(item.type === 'hotel'){
+        html += '<div class="card-title">'+item.title+'</div>';
+        if(item.note) html += '<div style="font-size:.8rem;color:#888;margin-top:6px">💡 '+item.note+'</div>';
+      } else if(item.type === 'sight'){
+        html += '<div class="sight-text">'+item.detail+'</div>';
+      } else if(item.type === 'transit'){
+        html += '<div class="card-title">'+item.title+'</div>';
+        if(item.note) html += '<div style="font-size:.8rem;color:#888;margin-top:6px">💡 '+item.note+'</div>';
+      }
+      html += '</div></div>';
+    });
+    block.innerHTML = html;
+    container.appendChild(block);
+  });
+}
+
+// ── Navigation ──
+function switchCity(ci){
+  // Update city tabs
+  document.querySelectorAll('.city-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === ci);
+    btn.style.color = i === ci ? '#2c2c2c' : '#bbb';
+  });
+  // Find first day of this city
+  const firstDay = DAYS.findIndex(d => d.cityIdx === ci);
+  switchDay(firstDay >= 0 ? firstDay : 0);
+}
+
+function switchDay(di){
+  currentDay = di;
+  const day = DAYS[di];
+  // Update day pills
+  const strip = document.getElementById('dayStrip');
+  const pills = strip.querySelectorAll('.day-pill');
+  const cityDays = DAYS.filter(d => d.cityIdx === day.cityIdx);
+  const localIdx = cityDays.indexOf(day);
+  pills.forEach((p, i) => p.classList.toggle('active', i === localIdx));
+  // Cards
+  document.querySelectorAll('.day-block').forEach((b, i) => b.classList.toggle('active', i === di));
+  // Map
+  updateMap(di);
+  // Scroll to top
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ── App links ──
+function xhsCk(el, q){
+  var ua = navigator.userAgent.toLowerCase();
+  if(/MicroMessenger|QQ|TouTiao|aweme/i.test(ua)){
+    el.href = 'https://www.xiaohongshu.com/search_result?keyword='+decodeURIComponent(q);
+    return true;
+  }
+  el.href = 'xhsdiscover://search/notes?keyword='+q;
+  setTimeout(function(){ window.location.href = 'https://www.xiaohongshu.com/search_result?keyword='+decodeURIComponent(q); }, 800);
+  return true;
+}
+function dpFb(el, q){
+  setTimeout(function(){ window.location.href = 'https://m.dianping.com/search/keyword/'+decodeURIComponent(q); }, 800);
+  return true;
+}
+
+// ── Boot ──
+function boot(){
+  renderCityNav();
+  renderDayStrip(0);
+  initMap();
+  renderCards(0);
+  setTimeout(() => { try{map && map.invalidateSize();}catch(e){} }, 500);
+}
+if(document.readyState === 'complete' || document.readyState === 'interactive') boot();
+else document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
